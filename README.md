@@ -1,145 +1,316 @@
-# Azure IoT Hub Live Telemetry Web Dashboard (`azure_web`)
+Azure IoT Dashboard
 
-A real-time telemetry monitoring dashboard designed to ingest, decode, and display live IoT messages from **Azure IoT Hub** / **Azure Event Hubs** using a **Flask (Python)** backend and a **React (JavaScript)** web interface.
+A full-stack demonstration that receives telemetry from Azure IoT Hub, consumes events through the IoT Hub Event Hubs-compatible endpoint, converts the received text message into ASCII codes, and displays the result in a React dashboard.
 
----
+Live Demo
 
-## 🎯 What We Are Going to Do
+Frontend (Render Static Site): https://azure-iot-dashboard-1.onrender.com/
 
-The objective of this project is to build an end-to-end telemetry monitoring pipeline that receives messages sent to Azure IoT Hub from connected devices/sensors and presents them live in a web browser.
+Backend API (Render Web Service): https://azure-iot-dashboard.onrender.com/
 
-### Step-by-Step Implementation Workflow:
+Latest telemetry endpoint: https://azure-iot-dashboard.onrender.com/api/latest
 
-1. **Telemetry Ingestion from Azure**:
-   - IoT devices or simulation scripts transmit sensor data / messages to Azure IoT Hub.
-   - Azure IoT Hub forwards messages to its built-in Event Hub-compatible endpoint (`EntityPath`).
+Health endpoint: https://azure-iot-dashboard.onrender.com/health
 
-2. **Backend Processing & Message Decoding (`server.py`)**:
-   - A Python Flask backend runs an asynchronous background consumer thread using `EventHubConsumerClient` from the `azure-eventhub` SDK.
-   - It listens for incoming events starting from `@latest`.
-   - It decodes diverse payload formats into readable strings:
-     - **Plain text / UTF-8 strings**.
-     - **JSON ASCII code arrays** (e.g., `[72, 101, 108, 108, 111]` $\rightarrow$ `"Hello"`).
-     - **Comma-separated ASCII integers** (e.g., `"72,101,108,108,111"` $\rightarrow$ `"Hello"`).
-   - In-memory state (`latest` message and ISO UTC timestamp) is kept thread-safe via `threading.Lock`.
+Deployment URLs were recorded during deployment on October 18, 2026. If a service URL changes in Render, update this section.
 
-3. **REST API Exposure**:
-   - The backend provides two endpoints on port `8000` with CORS enabled:
-     - `GET /api/latest`: Returns the most recent decoded telemetry message and timestamp.
-     - `GET /health`: Health check endpoint returning service status.
+Features
 
-4. **Frontend Dashboard (`src/azure_web.js`)**:
-   - Replaces the default `App.js` with a dedicated `azure_web.js` component.
-   - Polls `http://127.0.0.1:5000/api/latest` once every second (`1000ms`).
-   - Renders:
-     - **Connection Status indicator**: `CONNECTED` (green), `CONNECTING` (yellow), or `DISCONNECTED` (red).
-     - **Decoded Message panel**: Real-time display of the latest message payload.
-     - **Timestamp**: Formatted local date and time of the last received event.
+Receives events from Azure IoT Hub through its Event Hubs-compatible endpoint.
 
----
+Consumes messages using Azure Event Hubs client libraries.
 
-## 🏗️ Architecture & Data Pipeline
+Decodes message content as text and calculates the ASCII code for each character.
 
-```
-+-------------------------------------------------------------+
-|                     IoT Device / Sensor                     |
-|           (Sends ASCII codes, byte arrays, or text)         |
-+------------------------------+------------------------------+
-                               |
-                               v
-+-------------------------------------------------------------+
-|                       Azure IoT Hub                         |
-|             (Built-in Event Hubs Endpoint)                  |
-+------------------------------+------------------------------+
-                               |
-                               v
-+-------------------------------------------------------------+
-|                     Flask Backend Service                   |
-|                          (server.py)                        |
-|   - EventHubConsumerClient (Background listener)            |
-|   - Payload Decoder (ASCII array / comma-separated / UTF-8) |
-|   - REST API: GET /api/latest & GET /health                 |
-+------------------------------+------------------------------+
-                               |
-                               v (HTTP Polling every 1s)
-+-------------------------------------------------------------+
-|                   React Web Frontend                        |
-|                  (src/azure_web.js)                         |
-|   - Real-time message card                                  |
-|   - Live connection state (CONNECTED / DISCONNECTED)        |
-|   - Localized event timestamp                               |
-+-------------------------------------------------------------+
-```
+Exposes the latest message and status through a Flask REST API.
 
----
+Displays backend data in a React frontend.
 
-## 📁 Project Structure
+Deploys the frontend and backend as separate Render services.
 
-```
-azure_web/
-├── backend 
-|   |server.py             # Flask backend: Azure Event Hub consumer & REST API
-├── package.json           # React frontend dependencies and scripts
-├── public/                # Static assets (HTML template, icons)
-│   ├── index.html
-│   └── manifest.json
+Keeps connection credentials in environment variables rather than source code.
+
+Architecture
+
+flowchart LR
+    A["Telemetry source / device"] -->|"Message"| B["Azure IoT Hub"]
+    B -->|"Event Hubs-compatible endpoint"| C["Python EventHubConsumerClient"]
+    C --> D["Flask backend"]
+    D --> E["Decode message and convert each character to ASCII"]
+    E --> F["GET /api/latest"]
+    F -->|"HTTPS JSON"| G["React dashboard"]
+    G --> H["Render Static Site"]
+    D --> I["Render Python Web Service"]
+
+The Event Hubs consumer receives messages from the IoT Hub built-in endpoint. The backend keeps the latest received message and its ASCII values in application memory and returns them from /api/latest. This is a latest-message demo, not a persistent telemetry database.
+
+Technology Stack
+
+Layer
+
+Technology
+
+IoT ingestion
+
+Azure IoT Hub
+
+Event consumption
+
+Azure Event Hubs-compatible endpoint, azure-eventhub Python package
+
+Backend API
+
+Python, Flask, Flask-CORS
+
+Frontend
+
+React (Create React App / react-scripts)
+
+Hosting
+
+Render Web Service and Render Static Site
+
+Configuration
+
+Environment variables; local .env file for development
+
+Repository Structure
+
+The repository is organized around a Python backend and a React frontend. The exact files may evolve; the important entry points are:
+
+azure-iot-dashboard/
+├── backend/
+│   ├── server.py
+│   ├── requirements.txt
+│   └── .env                 # local only; must not be committed
 ├── src/
-│   ├── azure_web.js       # Main React telemetry dashboard (replaces App.js)
-│   ├── index.js           # React entry point mounting AzureWeb component
-│   ├── App.css            # Component styles
-│   ├── index.css          # Global typography and base styles
-│   └── setupTests.js      # Testing configuration
-└── README.md              # Project documentation and roadmap
-```
+│   └── azure_web.js         # React dashboard / API polling
+├── public/
+├── package.json
+├── .gitignore
+└── README.md
 
----
+Data Flow
 
-## 🚀 Getting Started
+A device or test producer sends a message to Azure IoT Hub.
 
-### 1. Prerequisites
+The backend connects to the IoT Hub Event Hubs-compatible endpoint using EventHubConsumerClient.
 
-- **Python**: Version 3.9 or higher
-- **Node.js**: Version 18 or higher (with `npm`)
-- **Azure IoT Hub**: Active Azure subscription with IoT Hub and Event Hub connection string.
+The consumer receives an event and decodes its body as text.
 
-### 2. Backend Setup (`server.py`)
+Each character is converted to its ASCII/Unicode code point for the message used in this demo. For the current sample message, all characters are ASCII.
 
-1. Install required Python packages:
-   ```bash
-   pip install flask flask-cors azure-eventhub
-   ```
+Flask stores the most recently received message, values, timestamp, and connection/error status in process memory.
 
-2. Verify or update Azure connection settings in `server.py`:
-   - `CONNECTION_STRING`: Azure Event Hub-compatible connection string.
-   - `CONSUMER_GROUP`: Default consumer group (`$default`).
+The React frontend polls GET /api/latest and renders the returned JSON.
 
-3. Start the Flask backend:
-   ```bash
-   python3 server.py
-   ```
-   The backend will start on `http://127.0.0.1:8000` and begin listening for telemetry from Azure Event Hubs.
+Example message: one_credit_course_project
 
-### 3. Frontend Setup (`azure_web.js`)
+Example ASCII result:
 
-1. Install npm dependencies (if not already installed):
-   ```bash
-   npm install
-   ```
+{
+  "message": "one_credit_course_project",
+  "ascii_values": [111, 110, 101, 95, 99, 114, 101, 100, 105, 116, 95, 99, 111, 117, 114, 115, 101, 95, 112, 114, 111, 106, 101, 99, 116],
+  "azure_connected": true,
+  "last_error": null
+}
 
-2. Launch the React development server:
-   ```bash
-   npm start
-   ```
-   The web application will open at `http://localhost:3000`.
+The exact response may also include a timestamp and other status fields.
 
----
+Run Locally
 
-## 📡 API Reference
+Prerequisites
 
-| Endpoint | Method | Description | Example Response |
-| :--- | :--- | :--- | :--- |
-| `/api/latest` | `GET` | Returns the latest received telemetry message and UTC timestamp | `{"message": "Hello World", "timestamp": "2026-10-11T15:20:00Z"}` |
-| `/health` | `GET` | Health check probe | `{"status": "ok"}` |
+Python installed
 
----
+Node.js and npm installed
 
+Azure IoT Hub configured to receive messages
+
+An Event Hubs-compatible endpoint connection string and the relevant event hub name, if required by the code
+
+1. Configure the backend
+
+Open a terminal at the repository root:
+
+cd backend
+python -m venv .venv
+
+Activate the environment on Windows:
+
+.venv\Scripts\Activate.ps1
+
+Install Python packages:
+
+pip install -r requirements.txt
+
+Create backend/.env locally and add the Azure Event Hubs-compatible connection string, event hub name (if your code expects a separate value), and consumer group using the exact environment-variable names referenced by backend/server.py. Do not commit .env or paste connection strings into issues or screenshots.
+
+Run the API:
+
+python server.py
+
+The backend uses Render's PORT variable when deployed. Locally, it typically uses port 5000.
+
+2. Configure and run the frontend
+
+Open a second terminal at the repository root:
+
+npm install
+
+In src/azure_web.js, make sure the API base URL points to the intended environment.
+
+For local backend testing:
+
+http://127.0.0.1:5000/api/latest
+
+For the deployed backend:
+
+https://azure-iot-dashboard.onrender.com/api/latest
+
+Run the React development server:
+
+npm start
+
+Create React App typically opens at http://localhost:3000.
+
+API
+
+GET /api/latest
+
+Returns the latest message and its decoded ASCII values, plus status information.
+
+Example fields:
+
+Field
+
+Meaning
+
+message
+
+Most recently received text message
+
+ascii_values
+
+Array containing the code for each character
+
+timestamp
+
+Time associated with the latest received message, when available
+
+azure_connected
+
+Backend's current connection/status indicator
+
+last_error
+
+Most recent recorded error, or null
+
+GET /health
+
+Health/status endpoint for checking whether the Flask service responds. A successful HTTP response does not by itself prove that a new Azure message has arrived; check /api/latest as well.
+
+Render Deployment
+
+The project uses two separate Render services.
+
+Backend — Web Service
+
+Service URL: https://azure-iot-dashboard.onrender.com
+
+Root Directory: backend
+
+Build Command: pip install -r requirements.txt
+
+Start Command: python server.py
+
+Required configuration: Azure Event Hubs-compatible connection details and consumer group, named exactly as expected by server.py.
+
+CORS: Allow the deployed frontend origin: https://azure-iot-dashboard-1.onrender.com.
+
+Frontend — Static Site
+
+Service URL: https://azure-iot-dashboard-1.onrender.com/
+
+Build Command: npm install && npm run build
+
+Publish Directory: build (this project uses Create React App, not Vite's dist directory)
+
+API URL: https://azure-iot-dashboard.onrender.com/api/latest
+
+The Flask CORS configuration must allow the exact frontend origin. If the code uses a FRONTEND_ORIGIN environment variable, set it in the backend Web Service's Environment page, not the Static Site. The code must read this variable for it to have an effect.
+
+Environment Variables and Secrets
+
+Never commit .env files, Azure connection strings, shared-access keys, or credentials.
+
+Keep local credentials in backend/.env; make sure .env is ignored by Git.
+
+Add deployment secrets in Render → backend Web Service → Environment.
+
+Use the exact variable names read by backend/server.py. Do not guess variable names from this README.
+
+The frontend should contain only the public backend API URL. Do not put Azure connection strings or backend secrets in React source or variables exposed to the browser.
+
+Keep FRONTEND_ORIGIN set to https://azure-iot-dashboard-1.onrender.com if the backend code uses it for CORS.
+
+Use the consumer group configured for the application (the deployed setup has used $Default).
+
+Security action required: an Azure connection string was exposed during earlier debugging. Rotate/regenerate the relevant shared-access key in Azure, then update the backend's Render environment variable and local .env. Do not paste the new secret into GitHub or chat.
+
+Recommended .gitignore entries:
+
+# Secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node
+node_modules/
+build/
+
+Review the existing .gitignore before editing so you preserve any project-specific rules. If a secret was committed previously, adding it to .gitignore does not remove it from Git history; rotate the secret first.
+
+Troubleshooting
+
+Frontend says DISCONNECTED: confirm src/azure_web.js uses the deployed backend URL, not 127.0.0.1 or localhost, then redeploy the Static Site.
+
+CORS error: allow https://azure-iot-dashboard-1.onrender.com in Flask CORS and redeploy the backend.
+
+API returns waiting values: inspect backend logs and confirm the Event Hubs consumer receives events.
+
+Publish directory does not exist: for Create React App use build, not dist.
+
+Render starts the wrong command: the current simple deployment uses python server.py; do not switch back to gunicorn server:app unless the receiver thread is moved into the correct Gunicorn worker lifecycle.
+
+No new telemetry: this implementation keeps only the latest message in process memory. It does not provide durable history.
+
+Final Verification Checklist
+
+https://azure-iot-dashboard.onrender.com/api/latest returns valid JSON.
+
+message and ascii_values match the received telemetry.
+
+The frontend at https://azure-iot-dashboard-1.onrender.com/ displays the data.
+
+Browser Console has no 127.0.0.1:5000 request or CORS error.
+
+Backend CORS allows the deployed frontend origin.
+
+.env files and credentials are not tracked by Git.
+
+The previously exposed Azure key has been rotated.
+
+README deployment URLs and commands match the current Render service settings.
+
+License
+
+Add the license required by your course or project. Do not claim an open-source license unless a license file has been added.
