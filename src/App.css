@@ -1,0 +1,36 @@
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+  background: #000;
+  color: #fff;
+  font-family: monospace;
+}
+
+.terminal {
+  min-height: 100vh;
+  padding: 24px;
+  background: #000;
+  color: #fff;
+  overflow-x: auto;
+}
+
+.heading {
+  margin-bottom: 32px;
+}
+
+.payload {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.table {
+  white-space: pre;
+  overflow-x: auto;
+}

@@ -1,0 +1,6 @@
+
+Flask
+flask-cors
+azure-eventhub
+python-dotenv
+gunicorn
