@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 // Flask backend runs on port 5000
-const API_URL = "http://127.0.0.1:5000/api/latest";
+const API_URL ="https://azure-iot-dashboard.onrender.com/api/latest";
 
 // Update these with your actual details
 const STUDENT_NAME = "HARIHARAN S";
