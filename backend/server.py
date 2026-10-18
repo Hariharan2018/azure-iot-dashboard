@@ -13,11 +13,20 @@ load_dotenv()
 
 app = Flask(__name__)
 
-CORS(app, resources={
-    r"/api/*": {
-        "origins": ["http://localhost:3000"]
-    }
-})
+# Allow the local React app.
+# Add your Vercel domain here when the frontend is deployed.
+allowed_origins = [
+    "http://localhost:3000",
+]
+
+vercel_origin = os.getenv("FRONTEND_ORIGIN")
+if vercel_origin:
+    allowed_origins.append(vercel_origin.rstrip("/"))
+
+CORS(
+    app,
+    resources={r"/api/*": {"origins": allowed_origins}},
+)
 
 CONNECTION_STRING = os.getenv("EVENTHUB_CONNECTION_STRING")
 CONSUMER_GROUP = os.getenv("CONSUMER_GROUP", "$Default")
@@ -71,14 +80,15 @@ def decode_message(raw):
 
 def receive_events():
     if not CONNECTION_STRING:
+        error = "Missing EVENTHUB_CONNECTION_STRING environment variable"
         with data_lock:
-            status["last_error"] = (
-                "Missing EVENTHUB_CONNECTION_STRING in backend/.env"
-            )
-        print(status["last_error"], flush=True)
+            status["last_error"] = error
+        print(error, flush=True)
         return
 
     try:
+        print("Connecting to Azure Event Hubs...", flush=True)
+
         client = EventHubConsumerClient.from_connection_string(
             conn_str=CONNECTION_STRING,
             consumer_group=CONSUMER_GROUP,
@@ -88,26 +98,28 @@ def receive_events():
             if event is None:
                 return
 
-            raw = event.body_as_str(encoding="UTF-8")
-            ascii_values, message = decode_message(raw)
+            try:
+                raw = event.body_as_str(encoding="UTF-8")
+                ascii_values, message = decode_message(raw)
 
-            timestamp = (
-                event.enqueued_time.isoformat()
-                if event.enqueued_time
-                else datetime.now(timezone.utc).isoformat()
-            )
+                timestamp = (
+                    event.enqueued_time.isoformat()
+                    if event.enqueued_time
+                    else datetime.now(timezone.utc).isoformat()
+                )
 
-            with data_lock:
-                latest["ascii_values"] = ascii_values
-                latest["message"] = message
-                latest["timestamp"] = timestamp
-                status["azure_connected"] = True
-                status["last_error"] = None
+                with data_lock:
+                    latest["ascii_values"] = ascii_values
+                    latest["message"] = message
+                    latest["timestamp"] = timestamp
+                    status["azure_connected"] = True
+                    status["last_error"] = None
 
-            print("Received ASCII:", ascii_values, flush=True)
-            print("Decoded message:", message, flush=True)
+                print("Received ASCII:", ascii_values, flush=True)
+                print("Decoded message:", message, flush=True)
 
-        print("Connecting to Azure Event Hubs...", flush=True)
+            except Exception as exc:
+                print("Event processing error:", str(exc), flush=True)
 
         with client:
             client.receive(
@@ -116,20 +128,20 @@ def receive_events():
             )
 
     except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
         with data_lock:
             status["azure_connected"] = False
-            status["last_error"] = str(exc)
+            status["last_error"] = error
 
-        print("Azure receiver error:", exc, flush=True)
+        print("Azure receiver error:", error, flush=True)
 
 
-@app.route("/api/latest", methods=["GET"])
-def get_latest():
-    with data_lock:
-        return jsonify({
-            **latest,
-            **status,
-        })
+@app.route("/")
+def home():
+    return jsonify({
+        "service": "Azure IoT Hub Backend",
+        "status": "running",
+    })
 
 
 @app.route("/health", methods=["GET"])
@@ -141,10 +153,24 @@ def health():
         })
 
 
-# Start the Azure receiver when the module loads
+@app.route("/api/latest", methods=["GET"])
+def get_latest():
+    with data_lock:
+        result = {
+            **latest,
+            **status,
+        }
+
+    print("API DATA:", result, flush=True)
+    return jsonify(result)
+
+
+# Start the receiver when the module is imported by Gunicorn.
+# Keep Render configured with one Gunicorn worker for this simple setup.
 receiver_thread = threading.Thread(
     target=receive_events,
     daemon=True,
+    name="azure-eventhub-receiver",
 )
 receiver_thread.start()
 
