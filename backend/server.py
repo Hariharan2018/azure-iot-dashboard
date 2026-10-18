@@ -13,24 +13,23 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Allow the local React app.
-# Add your Vercel domain here when the frontend is deployed.
-allowed_origins = [
-    "http://localhost:3000",
-]
+# CORS configuration
+allowed_origins = ["http://localhost:3000"]
 
-vercel_origin = os.getenv("FRONTEND_ORIGIN")
-if vercel_origin:
-    allowed_origins.append(vercel_origin.rstrip("/"))
+frontend_origin = os.getenv("FRONTEND_ORIGIN")
+if frontend_origin:
+    allowed_origins.append(frontend_origin.rstrip("/"))
 
 CORS(
     app,
     resources={r"/api/*": {"origins": allowed_origins}},
 )
 
+# Azure configuration
 CONNECTION_STRING = os.getenv("EVENTHUB_CONNECTION_STRING")
 CONSUMER_GROUP = os.getenv("CONSUMER_GROUP", "$Default")
 
+# Shared application state
 latest = {
     "ascii_values": None,
     "message": "Waiting for Azure telemetry...",
@@ -52,24 +51,29 @@ def decode_message(raw):
     # JSON ASCII array: [72,101,108,108,111]
     try:
         parsed = json.loads(text)
+
         if isinstance(parsed, list) and all(
-            type(x) is int and 0 <= x <= 127 for x in parsed
+            type(value) is int and 0 <= value <= 127
+            for value in parsed
         ):
             codes = parsed
+
     except (json.JSONDecodeError, TypeError):
         pass
 
     # Comma-separated ASCII: 72,101,108,108,111
     if codes is None and "," in text:
         try:
-            parsed = [int(x.strip()) for x in text.split(",")]
-            if all(0 <= x <= 127 for x in parsed):
+            parsed = [int(value.strip()) for value in text.split(",")]
+
+            if all(0 <= value <= 127 for value in parsed):
                 codes = parsed
+
         except ValueError:
             pass
 
     if codes is not None:
-        return codes, "".join(chr(x) for x in codes)
+        return codes, "".join(chr(value) for value in codes)
 
     # Ordinary ASCII text
     try:
@@ -79,16 +83,23 @@ def decode_message(raw):
 
 
 def receive_events():
+    process_id = os.getpid()
+
+    print(
+        f"RECEIVER STARTING | PID={process_id}",
+        flush=True,
+    )
+
     if not CONNECTION_STRING:
         error = "Missing EVENTHUB_CONNECTION_STRING environment variable"
+
         with data_lock:
             status["last_error"] = error
+
         print(error, flush=True)
         return
 
     try:
-        print("Connecting to Azure Event Hubs...", flush=True)
-
         client = EventHubConsumerClient.from_connection_string(
             conn_str=CONNECTION_STRING,
             consumer_group=CONSUMER_GROUP,
@@ -100,6 +111,12 @@ def receive_events():
 
             try:
                 raw = event.body_as_str(encoding="UTF-8")
+
+                print(
+                    f"RECEIVER PROCESS: {os.getpid()} | RAW: {raw}",
+                    flush=True,
+                )
+
                 ascii_values, message = decode_message(raw)
 
                 timestamp = (
@@ -112,6 +129,7 @@ def receive_events():
                     latest["ascii_values"] = ascii_values
                     latest["message"] = message
                     latest["timestamp"] = timestamp
+
                     status["azure_connected"] = True
                     status["last_error"] = None
 
@@ -119,7 +137,16 @@ def receive_events():
                 print("Decoded message:", message, flush=True)
 
             except Exception as exc:
-                print("Event processing error:", str(exc), flush=True)
+                print(
+                    "Event processing error:",
+                    repr(exc),
+                    flush=True,
+                )
+
+        print(
+            f"Connecting to Azure Event Hubs | PID={process_id}",
+            flush=True,
+        )
 
         with client:
             client.receive(
@@ -129,6 +156,7 @@ def receive_events():
 
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
+
         with data_lock:
             status["azure_connected"] = False
             status["last_error"] = error
@@ -136,21 +164,25 @@ def receive_events():
         print("Azure receiver error:", error, flush=True)
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
     return jsonify({
         "service": "Azure IoT Hub Backend",
         "status": "running",
+        "process_id": os.getpid(),
     })
 
 
 @app.route("/health", methods=["GET"])
 def health():
     with data_lock:
-        return jsonify({
+        result = {
             "backend_status": "ok",
+            "process_id": os.getpid(),
             **status,
-        })
+        }
+
+    return jsonify(result)
 
 
 @app.route("/api/latest", methods=["GET"])
@@ -161,22 +193,28 @@ def get_latest():
             **status,
         }
 
-    print("API DATA:", result, flush=True)
+    print(
+        f"API PROCESS: {os.getpid()} | DATA: {result}",
+        flush=True,
+    )
+
     return jsonify(result)
 
 
-# Start the receiver when the module is imported by Gunicorn.
-# Keep Render configured with one Gunicorn worker for this simple setup.
+# Start the receiver when Gunicorn imports this module.
+# Keep Render configured for one Gunicorn worker with this setup.
 receiver_thread = threading.Thread(
     target=receive_events,
     daemon=True,
     name="azure-eventhub-receiver",
 )
+
 receiver_thread.start()
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
+
     app.run(
         host="0.0.0.0",
         port=port,
