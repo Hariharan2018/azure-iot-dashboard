@@ -141,26 +141,15 @@ def health():
         })
 
 
-if __name__ == "__main__":
-    receiver_thread = threading.Thread(
-        target=receive_events,
-        daemon=True,
-    )
-    receiver_thread.start()
+# Start the Azure receiver when the module loads
+receiver_thread = threading.Thread(
+    target=receive_events,
+    daemon=True,
+)
+receiver_thread.start()
 
-    app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=False,
-    )
 
 if __name__ == "__main__":
-    receiver_thread = threading.Thread(
-        target=receive_events,
-        daemon=True,
-    )
-    receiver_thread.start()
-
     port = int(os.environ.get("PORT", 5000))
     app.run(
         host="0.0.0.0",
