@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520">
+<defs>
+  <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker>
+  <style>
+    .title{font:700 26px Arial,sans-serif;fill:#0f172a}
+    .head{font:700 17px Arial,sans-serif;fill:#0f172a}
+    .sub{font:14px Arial,sans-serif;fill:#334155}
+    .box{stroke:#64748b;stroke-width:1.5;rx:14}
+    .arr{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}
+    .note{font:13px Arial,sans-serif;fill:#475569}
+  </style>
+</defs>
+<rect width="1200" height="520" fill="#ffffff"/>
+<text x="600" y="42" text-anchor="middle" class="title">Azure IoT Dashboard — System Architecture</text>
+<rect x="35" y="145" width="175" height="125" class="box" fill="#f1f5f9"/>
+<text x="122" y="185" text-anchor="middle" class="head">Device / Producer</text>
+<text x="122" y="213" text-anchor="middle" class="sub">Sends telemetry</text>
+<text x="122" y="236" text-anchor="middle" class="sub">text message</text>
+<rect x="275" y="145" width="175" height="125" class="box" fill="#dbeafe"/>
+<text x="362" y="185" text-anchor="middle" class="head">Azure IoT Hub</text>
+<text x="362" y="213" text-anchor="middle" class="sub">Secure ingestion</text>
+<text x="362" y="236" text-anchor="middle" class="sub">built-in endpoint</text>
+<rect x="515" y="145" width="200" height="125" class="box" fill="#dcfce7"/>
+<text x="615" y="180" text-anchor="middle" class="head">Python consumer</text>
+<text x="615" y="205" text-anchor="middle" class="sub">EventHubConsumerClient</text>
+<text x="615" y="230" text-anchor="middle" class="sub">Receives and decodes</text>
+<rect x="780" y="105" width="180" height="205" class="box" fill="#fef3c7"/>
+<text x="870" y="145" text-anchor="middle" class="head">Flask API</text>
+<text x="870" y="177" text-anchor="middle" class="sub">Converts characters</text>
+<text x="870" y="199" text-anchor="middle" class="sub">to ASCII values</text>
+<text x="870" y="237" text-anchor="middle" class="sub">GET /api/latest</text>
+<text x="870" y="260" text-anchor="middle" class="sub">JSON response</text>
+<rect x="1020" y="145" width="150" height="125" class="box" fill="#f3e8ff"/>
+<text x="1095" y="185" text-anchor="middle" class="head">React UI</text>
+<text x="1095" y="213" text-anchor="middle" class="sub">Polls API</text>
+<text x="1095" y="236" text-anchor="middle" class="sub">Displays values</text>
+<path d="M210 207 H268" class="arr"/>
+<path d="M450 207 H508" class="arr"/>
+<path d="M715 207 H773" class="arr"/>
+<path d="M960 207 H1013" class="arr"/>
+<text x="239" y="190" text-anchor="middle" class="note">Telemetry</text>
+<text x="480" y="190" text-anchor="middle" class="note">Events</text>
+<text x="744" y="190" text-anchor="middle" class="note">Text</text>
+<text x="986" y="190" text-anchor="middle" class="note">HTTPS JSON</text>
+<rect x="280" y="370" width="310" height="75" class="box" fill="#f8fafc"/>
+<text x="435" y="399" text-anchor="middle" class="head">Render Web Service</text>
+<text x="435" y="423" text-anchor="middle" class="sub">Python + Flask backend</text>
+<rect x="650" y="370" width="310" height="75" class="box" fill="#f8fafc"/>
+<text x="805" y="399" text-anchor="middle" class="head">Render Static Site</text>
+<text x="805" y="423" text-anchor="middle" class="sub">React production build</text>
+<path d="M870 310 V335 H435 V363" class="arr"/>
+<path d="M1095 270 V335 H805 V363" class="arr"/>
+<text x="600" y="493" text-anchor="middle" class="note">Backend holds the latest message in memory; no persistent telemetry database is configured in this demo.</text>
+</svg>
